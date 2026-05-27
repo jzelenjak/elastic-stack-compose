@@ -99,4 +99,8 @@ create_role "beats_writer" '["monitor","read_ilm","manage_ilm","manage_index_tem
   '["read","create","create_index","index","write","auto_configure","manage","manage_ilm"]'
 create_user "$BEATS_USER" "$BEATS_PASSWORD" '["beats_writer"]' "Internal Beats User"
 
+echo "Setting snapshot directory permissions"
+chown 1000:0 /usr/share/elasticsearch/snapshots
+chmod 775 /usr/share/elasticsearch/snapshots
+
 echo "All done!"

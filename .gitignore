@@ -9,6 +9,9 @@ certs/entities/**/*.zip
 # Input data
 data/
 
+# Snapshots
+snapshots/*
+
 # Symbolic links
 curl.py
 curl.sh

@@ -219,8 +219,4 @@ find "$CERT_DIR" -type f -exec chmod 640 \{\} \;
 chmod 644 "${CA_PUB_CERT_DIR}/${CA_CERT_FILE_NAME}"
 chmod 755 "$CA_PUB_CERT_DIR"
 
-echo "Setting snapshot volume permissions"
-chown 1000:0 /usr/share/elasticsearch/snapshots
-chmod 775 /usr/share/elasticsearch/snapshots
-
 echo "All done!"

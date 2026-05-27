@@ -25,6 +25,13 @@ docker compose pull
 (All images are defined in the main `compose.yaml` file.)
 
 Make sure to set the environment variables (such as passwords and Kibana encryption keys) in the `.env` file. Use `.env.example` as a reference.
+To generate Kibana encryption keys, you can use the `generate-kibana-keys` service, e.g.:
+```bash
+docker compose --profile kibana-keys run --rm generate-kibana-keys
+```
+
+For additional production-relevant settings, refer to the [Elastic documentation](https://www.elastic.co/docs/deploy-manage/deploy/self-managed/install-elasticsearch-docker-prod).
+Note that if you run Docker in [rootless mode](https://docs.docker.com/engine/security/rootless/), you need to comment out the memory lock settings for Elasticsearch nodes in the Compose files.
 
 
 
@@ -83,9 +90,9 @@ The `setup_certs.sh` script also allows setting some certificate parameters, suc
 To generate certificates using the `setup-certs` service, run:
 ```bash
 # Single-node cluster or when using properties mode (regardless of single- vs multi-node setup)
-docker compose --profile setup run --rm setup-certs
+docker compose --profile certs run --rm setup-certs
 # Multi-node cluster (important when using instances.yml file)
-docker compose --profile setup -f compose.yaml -f compose.multi-node.yaml run --rm setup-certs
+docker compose --profile certs -f compose.yaml -f compose.multi-node.yaml run --rm setup-certs
 # Explicitly start the service (specify the compose files with -f if needed)
 docker compose up setup-certs
 ```
@@ -112,10 +119,18 @@ You can also safely delete the `.properties` files if they bother you.
 
 First, make sure you have all the required certificates in the `certs/entities/` directory (see the above section).
 
-If you want to perform certificate generation when starting other services, you could add `--profile setup` to the Compose command (e.g., `docker compose --profile setup up`).
+If you want to perform certificate generation when starting other services, you could add `--profile certs` to the Compose command (e.g., `docker compose --profile certs up`).
 Note, however, that this is not recommended with the current setup, since Elasticsearch service does not depend on the `setup-certs` service to complete.
 Therefore, to ensure a proper [startup order](https://docs.docker.com/compose/how-tos/startup-order/), you would need to add a `depends_on` section for Elasticsearch service(s),
 specifying `setup-certs` with `condition: service_completed_successfully`.
+
+Before starting the stack, it is recommended to verify the Compose configuration by running:
+```bash
+# Single-node cluster
+docker compose config
+# Multi-node cluster
+docker compose -f compose.yaml -f compose.multi-node.yaml config
+```
 
 
 ### Single-node cluster
@@ -181,14 +196,14 @@ docker compose --profile "*" down
 
 ### Further usage
 
-To access Kibana, type `https://localhost:5601` in your browser.
+To access Kibana, enter `https://localhost:5601` in your browser.
 Note that including the scheme `https://` is necessary, since Kibana is configured to use HTTPS.
 
 To query Elasticsearch, run:
 ```bash
 curl --cacert certs/entities/ca_pub/ca.crt -u "elastic:$ELASTIC_PASSWORD" -XGET 'https://localhost:9200?pretty'
 ```
-(You can create a symlink for `ca.crt` in the repository root directory to make the command slighly shorter, e.g., `ln -s certs/entities/ca_pub/ca.crt ca.crt`)
+(You can create a symlink for `ca.crt` in the repository root directory to make the command slightly shorter, e.g., `ln -s certs/entities/ca_pub/ca.crt ca.crt`)
 
 Note that `es01` is the only node that exposes the HTTP API to the host.
 

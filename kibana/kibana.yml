@@ -16,10 +16,7 @@ path.data: ${HOME}/data
 elasticsearch.hosts: ${ES_HOSTS}
 elasticsearch.username: ${KIBANA_USER}
 elasticsearch.password: ${KIBANA_PASSWORD}
-elasticsearch.ssl.certificate: ${HOME}/config/certs/kibana/kibana.crt
-elasticsearch.ssl.key: ${HOME}/config/certs/kibana/kibana.key
 elasticsearch.ssl.certificateAuthorities: ${HOME}/config/certs/ca/ca.crt
-elasticsearch.ssl.verificationMode: certificate
 
 xpack.encryptedSavedObjects.encryptionKey: ${ENCRYPTED_SAVED_OBJECTS_ENCRYPTION_KEY}
 xpack.reporting.encryptionKey: ${REPORTING_ENCRYPTION_KEY}

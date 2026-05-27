@@ -16,12 +16,9 @@ services:
       - ./certs/setup_certs.sh:/usr/share/elasticsearch/setup_certs.sh:ro
       - ./certs/instances.yml:/usr/share/elasticsearch/config/instances.yml:ro
       - ./certs/entities/:/usr/share/elasticsearch/config/certs
-      # Needed to set the correct permissions for the snapshots directory for elasticsearch services
-      - es_snapshots:/usr/share/elasticsearch/snapshots/
-    networks:
-      - internal
+    network_mode: none
     profiles:
-      - setup
+      - certs
 
   setup-users:
     image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
@@ -31,21 +28,28 @@ services:
     volumes:
       - ./setup/setup_users.sh:/usr/share/elasticsearch/setup_users.sh:ro
       - ./certs/entities/ca_pub/:/usr/share/elasticsearch/config/certs/ca:ro
+      # Needed to set the correct permissions for the snapshots directory for elasticsearch services
+      - ./snapshots/:/usr/share/elasticsearch/snapshots
     environment:
       ES_HOST: "https://es01:9200"
-      ELASTIC_USER: ${ELASTIC_USER}
       ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
-      KIBANA_USER: ${KIBANA_USER}
       KIBANA_PASSWORD: ${KIBANA_PASSWORD}
-      LOGSTASH_USER: ${LOGSTASH_USER}
       LOGSTASH_PASSWORD: ${LOGSTASH_PASSWORD}
-      BEATS_USER: ${BEATS_USER}
       BEATS_PASSWORD: ${BEATS_PASSWORD}
     networks:
       - internal
     depends_on:
       es01:
         condition: service_healthy
+
+  # NOTE: This is a simple service that is used to generate Kibana encryption keys
+  # It is intended to be a one-shot container and run independently of the main stack
+  generate-kibana-keys:
+    image: docker.elastic.co/kibana/kibana:${STACK_VERSION}
+    command: /usr/share/kibana/bin/kibana-encryption-keys generate
+    network_mode: none
+    profiles:
+      - kibana-keys
 
   es01:
     image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
@@ -54,18 +58,18 @@ services:
       - ./elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
       - ./certs/entities/ca_pub/:/usr/share/elasticsearch/config/certs/ca:ro
       - ./certs/entities/es01/:/usr/share/elasticsearch/config/certs/es01:ro
+      - ./snapshots/:/usr/share/elasticsearch/snapshots
       - es01_data:/usr/share/elasticsearch/data
-      - es_snapshots:/usr/share/elasticsearch/snapshots
     environment:
       NODE_NAME: es01
       CLUSTER_NAME: ${ES_CLUSTER_NAME}
-      ELASTIC_USER: ${ELASTIC_USER}
       ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
       LICENSE: ${LICENSE}
       # NOTE: Set to false if using Docker in rootless mode
       MEMORY_LOCK: true
       discovery.type: single-node
     ports:
+      # By default binds to localhost only (see env file)
       - ${ES_PORT}:9200
     networks:
       - internal
@@ -80,6 +84,10 @@ services:
       interval: 10s
       timeout: 30s
       retries: 120
+    # NOTE: Not needed if setup-certs service runs separately to generate certificates or if external certificates are used
+    #depends_on:
+    #  setup-certs:
+    #    condition: service_completed_successfully
     labels:
       co.elastic.logs/module: elasticsearch
 
@@ -94,12 +102,13 @@ services:
     environment:
       ES_HOSTS: '["https://es01:9200"]'
       SERVER_NAME: kibana
-      KIBANA_USER: ${KIBANA_USER}
+      KIBANA_USER: kibana_system
       KIBANA_PASSWORD: ${KIBANA_PASSWORD}
-      ENCRYPTED_SAVED_OBJECTS_ENCRYPTION_KEY: ${KIBANA_ENCRYPTED_SAVED_OBJECTS_ENCRYPTION_KEY}
-      REPORTING_ENCRYPTION_KEY: ${KIBANA_REPORTING_ENCRYPTION_KEY}
-      SECURITY_ENCRYPTION_KEY: ${KIBANA_SECURITY_ENCRYPTION_KEY}
+      ENCRYPTED_SAVED_OBJECTS_ENCRYPTION_KEY: ${KIBANA_ENCRYPTED_SAVED_OBJECTS_ENCRYPTION_KEY:?set encryption key}
+      REPORTING_ENCRYPTION_KEY: ${KIBANA_REPORTING_ENCRYPTION_KEY:?set encryption key}
+      SECURITY_ENCRYPTION_KEY: ${KIBANA_SECURITY_ENCRYPTION_KEY:?set encryption key}
     ports:
+      # By default binds to localhost only (see env file)
       - ${KIBANA_PORT}:5601
     networks:
       - internal
@@ -134,7 +143,7 @@ services:
       - logstash_data:/usr/share/logstash/data
     environment:
       ES_HOSTS: "https://es01:9200"
-      LOGSTASH_USER: ${LOGSTASH_USER}
+      LOGSTASH_USER: logstash_internal
       LOGSTASH_PASSWORD: ${LOGSTASH_PASSWORD}
       SSL_CERTIFICATE_AUTHORITIES: /usr/share/logstash/config/certs/ca/ca.crt
     networks:
@@ -165,7 +174,7 @@ services:
       - filebeat_data:/usr/share/filebeat/data
     environment:
       ES_HOSTS: '["https://es01:9200"]'
-      BEATS_USER: ${BEATS_USER}
+      BEATS_USER: beats_internal
       BEATS_PASSWORD: ${BEATS_PASSWORD}
       KIBANA_HOST: "https://kibana:5601"
       SSL_CERTIFICATE_AUTHORITIES: /usr/share/filebeat/certs/ca/ca.crt
@@ -190,7 +199,7 @@ services:
       - ./certs/entities/ca_pub/:/usr/share/heartbeat/certs/ca:ro
     environment:
       ES_HOSTS: '["https://es01:9200"]'
-      BEATS_USER: ${BEATS_USER}
+      BEATS_USER: beats_internal
       BEATS_PASSWORD: ${BEATS_PASSWORD}
       KIBANA_HOST: "https://kibana:5601"
       SSL_CERTIFICATE_AUTHORITIES: /usr/share/heartbeat/certs/ca/ca.crt
@@ -209,7 +218,6 @@ services:
 
 volumes:
   es01_data:
-  es_snapshots:
   kibana_data:
   logstash_data:
   filebeat_data:

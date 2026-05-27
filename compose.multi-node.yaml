@@ -18,12 +18,15 @@ x-es-common: &es-common
     interval: 10s
     timeout: 30s
     retries: 120
+  # NOTE: Not needed if setup-certs service runs separately to generate certificates or if external certificates are used
+  #depends_on:
+  #  setup-certs:
+  #    condition: service_completed_successfully
   labels:
     co.elastic.logs/module: elasticsearch
 
 x-es-common-env: &es-common-env
   CLUSTER_NAME: ${ES_CLUSTER_NAME}
-  ELASTIC_USER: ${ELASTIC_USER}
   ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
   LICENSE: ${LICENSE}
   # NOTE: Set to false if using Docker in rootless mode
@@ -49,8 +52,8 @@ services:
       - ./elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
       - ./certs/entities/ca_pub/:/usr/share/elasticsearch/config/certs/ca:ro
       - ./certs/entities/es02/:/usr/share/elasticsearch/config/certs/es02:ro
+      - ./snapshots/:/usr/share/elasticsearch/snapshots
       - es02_data:/usr/share/elasticsearch/data
-      - es_snapshots:/usr/share/elasticsearch/snapshots
     environment: 
       <<: *es-common-env
       NODE_NAME: es02
@@ -61,8 +64,8 @@ services:
       - ./elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
       - ./certs/entities/ca_pub/:/usr/share/elasticsearch/config/certs/ca:ro
       - ./certs/entities/es03/:/usr/share/elasticsearch/config/certs/es03:ro
+      - ./snapshots/:/usr/share/elasticsearch/snapshots
       - es03_data:/usr/share/elasticsearch/data
-      - es_snapshots:/usr/share/elasticsearch/snapshots
     environment:
       <<: *es-common-env
       NODE_NAME: es03
